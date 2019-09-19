@@ -64,7 +64,7 @@ The plugin uses TPM credential activation as the method of attestation. The plug
 1. Server creates a SPIFFE ID in the form of `spiffe://<trust_domain>/agent/tpm/<sha256sum_of_tpm_pubkey>`
 1. All done!
 
-For for info on how TPM attestation usually works and how this implementation differs, visit [TPM.md](TPM.md).
+For info on how TPM attestation usually works and how this implementation differs, visit [TPM.md](TPM.md).
 
 ## Building
 
@@ -98,4 +98,3 @@ team at opensource@bloomberg.net, detailing the suspected issue and any methods 
 
 Please do NOT open an issue in the GitHub repository, as we'd prefer to keep vulnerability reports private until
 we've had an opportunity to review and address them.
-
