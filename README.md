@@ -12,6 +12,12 @@ This repository contains agent and server plugins for [SPIRE](https://github.com
 - [Code of Conduct](#code-of-conduct)
 - [Security Vulnerability Reporting](#security-vulnerability-reporting)
 
+## Demo
+
+Here's a quick demo that shows how this plugin looks when run:
+
+[![asciicast](https://asciinema.org/a/n0TUMXXlbPUpNtxGxzD0AWzdf.svg)](https://asciinema.org/a/n0TUMXXlbPUpNtxGxzD0AWzdf)
+
 ## Quick Start
 
 Before starting, create a running SPIRE deployment and add the following configuration to the agent and server:
