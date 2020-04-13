@@ -17,13 +17,15 @@
 package common
 
 import (
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
+	"strings"
 
 	"github.com/google/certificate-transparency-go/x509"
-
 	"github.com/google/go-attestation/attest"
 )
 
@@ -32,8 +34,8 @@ const (
 )
 
 type AttestationData struct {
-	EK  []byte
-	AIK *attest.AttestationParameters
+	EK []byte
+	AK *attest.AttestationParameters
 }
 
 type Challenge struct {
@@ -57,7 +59,7 @@ func CalculateResponse(ec *attest.EncryptedCredential, aikBytes []byte) (*Challe
 	}
 	defer tpm.Close()
 
-	aik, err := tpm.LoadAIK(aikBytes)
+	aik, err := tpm.LoadAK(aikBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +86,12 @@ func GenerateAttestationData() (*AttestationData, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	aik, err := tpm.MintAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer aik.Close(tpm)
-	params := aik.AttestationParameters()
+	defer ak.Close(tpm)
+	params := ak.AttestationParameters()
 
 	var ekCert *x509.Certificate
 	for _, ek := range eks {
@@ -103,14 +105,14 @@ func GenerateAttestationData() (*AttestationData, []byte, error) {
 		return nil, nil, errors.New("no EK available")
 	}
 
-	aikBytes, err := aik.Marshal()
+	aikBytes, err := ak.Marshal()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return &AttestationData{
-		EK:  ekCert.Raw,
-		AIK: &params,
+		EK: ekCert.Raw,
+		AK: &params,
 	}, aikBytes, nil
 }
 
@@ -118,7 +120,18 @@ func AgentID(trustDomain string, pubHash string) string {
 	u := url.URL{
 		Scheme: "spiffe",
 		Host:   trustDomain,
-		Path:   path.Join("spire", "agent", "tpm", pubHash),
+		Path:   strings.Join([]string{"spire", "agent", "tpm", pubHash}, "/"),
 	}
 	return u.String()
+}
+
+func GetPubHash(cert *x509.Certificate) (string, error) {
+	if cert.PublicKeyAlgorithm != x509.RSA {
+		return "", fmt.Errorf("expected rsa public key but got %s", cert.PublicKeyAlgorithm.String())
+	}
+	pubKey := cert.PublicKey.(*rsa.PublicKey)
+	pubBytes := x509.MarshalPKCS1PublicKey(pubKey)
+	pubHash := sha256.Sum256(pubBytes)
+	hashEncoded := base64.StdEncoding.EncodeToString(pubHash[:])
+	return hashEncoded, nil
 }

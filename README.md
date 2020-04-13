@@ -51,7 +51,7 @@ NodeAttestor "tpm" {
 
 ### Certificate Directory Configuration
 
-For this plugin to work, you need to have the certificate for the CA that signed your TPM's EK certificate. Once you have the root and (if needed) intermediate certs, put the roots in `<ca_path>/RootCA/*.<cert>.{der,cer,crt}` and the intermediates in `<ca_path>/RootCA/<cert>.{der,cer,crt}`.
+For this plugin to work, you need to have the certificate for the CA that signed your TPM's EK certificate. Drop all CA certs in the directory `ca_path`.
 
 ## How it Works
 

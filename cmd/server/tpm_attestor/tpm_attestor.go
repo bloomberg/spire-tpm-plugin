@@ -19,19 +19,16 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/asn1"
-	"encoding/base64"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-
-	"github.com/google/certificate-transparency-go/x509"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
 	"github.com/google/go-attestation/attest"
-	"github.com/google/go-attestation/verifier"
+	"github.com/google/go-attestation/attributecert"
 	"github.com/hashicorp/hcl"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	spc "github.com/spiffe/spire/proto/spire/common"
@@ -46,7 +43,7 @@ type TPMAttestorPlugin struct {
 
 type TPMAttestorPluginConfig struct {
 	trustDomain string
-	CaPath      []string `hcl:"ca_path"`
+	CaPath      string `hcl:"ca_path"`
 }
 
 func New() *TPMAttestorPlugin {
@@ -69,8 +66,8 @@ func (p *TPMAttestorPlugin) Configure(ctx context.Context, req *spi.ConfigureReq
 	if req.GlobalConfig.TrustDomain == "" {
 		return nil, errors.New("trust_domain is required")
 	}
-	if config.CaPath == nil {
-		config.CaPath = []string{"/opt/spire/.data/certs"}
+	if config.CaPath == "" {
+		config.CaPath = "/opt/spire/.data/certs"
 	}
 
 	config.trustDomain = req.GlobalConfig.TrustDomain
@@ -100,20 +97,40 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 
 	leaf, _ := x509.ParseCertificate(attestationData.EK)
 
-	verif, err := verifier.NewEKVerifier(p.config.CaPath)
+	attrs, err := attributecert.ParseAttributeCertificate(leaf.Raw)
 	if err != nil {
-		return fmt.Errorf("tpm: could not read in certs: %v", err)
+		return fmt.Errorf("tpm: could not parse attributes for ek: %v", err)
 	}
 
-	_, err = verif.VerifyEKCert(attestationData.EK)
+	files, err := ioutil.ReadDir(p.config.CaPath)
 	if err != nil {
-		return fmt.Errorf("tpm: could not find valid CA for EK Cert: %v", err)
+		return fmt.Errorf("tpm: could not open ca directory: %v", err)
+	}
+
+	validEK := false
+	for _, file := range files {
+		filename := filepath.Join(p.config.CaPath, file.Name())
+		certData, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return fmt.Errorf("tpm: could not read cert data: %v", err)
+		}
+		parent, err := x509.ParseCertificate(certData)
+		if err != nil {
+			return fmt.Errorf("tpm: could not parse cert data: %v", err)
+		}
+		if err := attrs.CheckSignatureFrom(parent); err != nil {
+			validEK = true
+			break
+		}
+	}
+	if !validEK {
+		return fmt.Errorf("tpm: could not find valid CA for EK certificate")
 	}
 
 	ap := attest.ActivationParameters{
 		TPMVersion: attest.TPMVersion20,
 		EK:         leaf.PublicKey,
-		AIK:        *attestationData.AIK,
+		AK:         *attestationData.AK,
 	}
 
 	secret, ec, err := ap.Generate()
@@ -150,9 +167,10 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		return fmt.Errorf("tpm: incorrect secret from attestor")
 	}
 
-	pubBytes, err := asn1.Marshal(leaf)
-	pubHash := sha256.Sum256(pubBytes)
-	hashEncoded := base64.StdEncoding.EncodeToString(pubHash[:])
+	hashEncoded, err := common.GetPubHash(leaf)
+	if err != nil {
+		return fmt.Errorf("tpm: could not get public key hash: %v", err)
+	}
 
 	return stream.Send(&nodeattestor.AttestResponse{
 		AgentId:   common.AgentID(p.config.trustDomain, hashEncoded),
@@ -165,7 +183,6 @@ func buildSelectors(pubHash string) []*spc.Selector {
 	selectors = append(selectors, &spc.Selector{
 		Type: "tpm", Value: "pub_hash:" + pubHash,
 	})
-	log.Println(selectors)
 	return selectors
 }
 
