@@ -19,15 +19,13 @@ package common
 import (
 	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/asn1"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
+	"strings"
 
 	"github.com/google/certificate-transparency-go/x509"
-
 	"github.com/google/go-attestation/attest"
 )
 
@@ -122,7 +120,7 @@ func AgentID(trustDomain string, pubHash string) string {
 	u := url.URL{
 		Scheme: "spiffe",
 		Host:   trustDomain,
-		Path:   path.Join("spire", "agent", "tpm", pubHash),
+		Path:   strings.Join([]string{"spire", "agent", "tpm", pubHash}, "/"),
 	}
 	return u.String()
 }
@@ -132,10 +130,7 @@ func GetPubHash(cert *x509.Certificate) (string, error) {
 		return "", fmt.Errorf("expected rsa public key but got %s", cert.PublicKeyAlgorithm.String())
 	}
 	pubKey := cert.PublicKey.(*rsa.PublicKey)
-	pubBytes, err := asn1.Marshal(pubKey)
-	if err != nil {
-		return "", err
-	}
+	pubBytes := x509.MarshalPKCS1PublicKey(pubKey)
 	pubHash := sha256.Sum256(pubBytes)
 	hashEncoded := base64.StdEncoding.EncodeToString(pubHash[:])
 	return hashEncoded, nil
