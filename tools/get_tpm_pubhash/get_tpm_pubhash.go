@@ -17,33 +17,42 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/asn1"
-	"encoding/base64"
-	"flag"
 	"fmt"
 	"log"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
-)
-
-var (
-	tpmPath = flag.String("tpm-path", "/dev/tpmrm0", "location of tpm device")
+	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-attestation/attest"
 )
 
 func main() {
-	flag.Parse()
-	pubKey, err := common.GetPubKey(*tpmPath)
+	tpm, err := attest.OpenTPM(&attest.OpenConfig{
+		TPMVersion: attest.TPMVersion20,
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}
-	asn1Bytes, err := asn1.Marshal(*pubKey)
+	defer tpm.Close()
+	eks, err := tpm.EKs()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	pubHash := sha256.Sum256(asn1Bytes)
-	hashEncoded := base64.StdEncoding.EncodeToString(pubHash[:])
+	var ekCert *x509.Certificate
+	for _, ek := range eks {
+		if ek.Certificate != nil && ek.Certificate.PublicKeyAlgorithm == x509.RSA {
+			ekCert = ek.Certificate
+			break
+		}
+	}
+	if ekCert == nil {
+		log.Fatalln("could not find RSA public key")
+	}
+
+	hashEncoded, err := common.GetPubHash(ekCert)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	fmt.Println(hashEncoded)
 }
