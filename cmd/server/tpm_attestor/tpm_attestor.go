@@ -1,5 +1,5 @@
 /*
-** Copyright 2019 Bloomberg Finance L.P.
+ ** Copyright 2019 Bloomberg Finance L.P.
  **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
  ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
-*/
+ */
 
 package main
 
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,8 +27,8 @@ import (
 	"path/filepath"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
+	"github.com/google/go-attestation/attributecert"
 	"github.com/hashicorp/hcl"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	spc "github.com/spiffe/spire/proto/spire/common"
@@ -96,6 +97,11 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 
 	leaf, _ := x509.ParseCertificate(attestationData.EK)
 
+	attrs, err := attributecert.ParseAttributeCertificate(leaf.Raw)
+	if err != nil {
+		return fmt.Errorf("tpm: could not parse attributes for ek: %v", err)
+	}
+
 	files, err := ioutil.ReadDir(p.config.CaPath)
 	if err != nil {
 		return fmt.Errorf("tpm: could not open ca directory: %v", err)
@@ -112,7 +118,7 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		if err != nil {
 			return fmt.Errorf("tpm: could not parse cert data: %v", err)
 		}
-		if err = parent.CheckSignature(leaf.SignatureAlgorithm, leaf.RawTBSCertificate, leaf.Signature); err == nil {
+		if err := attrs.CheckSignatureFrom(parent); err != nil {
 			validEK = true
 			break
 		}
