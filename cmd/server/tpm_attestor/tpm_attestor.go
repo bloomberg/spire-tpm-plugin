@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
+	gx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
 	"github.com/google/go-attestation/attributecert"
 	"github.com/hashicorp/hcl"
@@ -95,7 +96,7 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		return fmt.Errorf("tpm: failed to unmarshal attestation data: %v", err)
 	}
 
-	leaf, _ := x509.ParseCertificate(attestationData.EK)
+	leaf, _ := gx509.ParseCertificate(attestationData.EK)
 
 	attrs, err := attributecert.ParseAttributeCertificate(leaf.Raw)
 	if err != nil {
