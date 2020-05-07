@@ -19,7 +19,6 @@ package common
 import (
 	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strings"
@@ -65,6 +64,6 @@ func GetPubHash(cert *x509.Certificate) (string, error) {
 	pubKey := cert.PublicKey.(*rsa.PublicKey)
 	pubBytes := x509.MarshalPKCS1PublicKey(pubKey)
 	pubHash := sha256.Sum256(pubBytes)
-	hashEncoded := base64.StdEncoding.EncodeToString(pubHash[:])
+	hashEncoded := fmt.Sprintf("%x", pubHash)
 	return hashEncoded, nil
 }
