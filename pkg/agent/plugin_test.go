@@ -38,7 +38,9 @@ import (
 )
 
 var (
-	svidExpected = "spiffe://domain.test/spire/agent/tpm/7355dbc6b8a42feb20742c3b84a1659a1dbfcbf41e9c78887cb6b3065b06ff24"
+	hashExpected = "7355dbc6b8a42feb20742c3b84a1659a1dbfcbf41e9c78887cb6b3065b06ff24"
+	svidExpected = "spiffe://domain.test/spire/agent/tpm/" + hashExpected
+	invalidHash  = "0000000000000000000000000000000000000000000000000000000000000000"
 	testKey, _   = pemutil.ParseSigner([]byte(`-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgy8ps3oQaBaSUFpfd
 XM13o+VSA0tcZteyTvbOdIQNVnKhRANCAAT4dPIORBjghpL5O4h+9kyzZZUAFV9F
@@ -110,24 +112,48 @@ func TestAttestor(t *testing.T) {
 		bootstrapBundle *x509.Certificate
 		emptyCA         bool
 		err             string
+		hcl             string
 		pemEncodeCAs    bool
 		validateCAs     []*x509.Certificate
+		validateHashes  []string
 	}{
 		{
-			name:            "validate CA certificate PEM format",
+			name:            "valid CA certificate PEM format",
 			bootstrapBundle: caCert,
 			validateCAs:     []*x509.Certificate{tpmCACert},
 			pemEncodeCAs:    true,
 		},
 		{
-			name:            "validate CA certificate DER format",
+			name:            "valid CA certificate DER format",
 			bootstrapBundle: caCert,
 			validateCAs:     []*x509.Certificate{tpmCACert},
 		},
 		{
-			name:            "validate multiple CA",
+			name:            "valid multiple CAs",
 			bootstrapBundle: caCert,
 			validateCAs:     []*x509.Certificate{tpmCACert, invalidCA},
+		},
+		{
+			name:            "valid hash",
+			bootstrapBundle: caCert,
+			validateHashes:  []string{hashExpected},
+		},
+		{
+			name:            "valid hash",
+			bootstrapBundle: caCert,
+			validateHashes:  []string{hashExpected},
+		},
+		{
+			name:            "valid CA, invalid hash",
+			bootstrapBundle: caCert,
+			validateCAs:     []*x509.Certificate{tpmCACert},
+			validateHashes:  []string{invalidHash},
+		},
+		{
+			name:            "valid hash, invalid CA",
+			bootstrapBundle: caCert,
+			validateCAs:     []*x509.Certificate{invalidCA},
+			validateHashes:  []string{hashExpected},
 		},
 		{
 			name:            "error empty CA",
@@ -141,6 +167,19 @@ func TestAttestor(t *testing.T) {
 			validateCAs:     []*x509.Certificate{invalidCA},
 			err:             "could not verify cert",
 		},
+		{
+			name:            "error invalid hash",
+			bootstrapBundle: caCert,
+			validateHashes:  []string{invalidHash},
+			err:             "could not validate EK certificate",
+		},
+		{
+			name:            "error invalid hash, invalid CA",
+			bootstrapBundle: caCert,
+			validateCAs:     []*x509.Certificate{invalidCA},
+			validateHashes:  []string{invalidHash},
+			err:             "could not verify cert",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -149,8 +188,11 @@ func TestAttestor(t *testing.T) {
 
 			// prepare the temp directory
 			hcl, removeDir := prepareTestDir(t, testCase.validateCAs, testCase.pemEncodeCAs,
-				testCase.emptyCA)
+				testCase.emptyCA, testCase.validateHashes)
 			defer removeDir()
+			if testCase.hcl != "" {
+				hcl = testCase.hcl
+			}
 
 			// load up the fake agent-side node attestor
 			agentPlugin := New()
@@ -226,7 +268,8 @@ func TestAttestor(t *testing.T) {
 	}
 }
 
-func prepareTestDir(t *testing.T, caCerts []*x509.Certificate, pemEncodeCA bool, emptyCA bool) (string, func()) {
+func prepareTestDir(t *testing.T, caCerts []*x509.Certificate,
+	pemEncodeCA bool, emptyCA bool, hashes []string) (string, func()) {
 	dir, err := ioutil.TempDir("", "spire-tpm-plugin-")
 	require.NoError(t, err)
 
@@ -240,7 +283,7 @@ func prepareTestDir(t *testing.T, caCerts []*x509.Certificate, pemEncodeCA bool,
 	hcl := ""
 	if emptyCA || caCerts != nil {
 		caCertPath := filepath.Join(dir, "certs")
-		hcl += fmt.Sprintf(`ca_path = "%s"`, caCertPath)
+		hcl += fmt.Sprintf("ca_path = \"%s\"\n", caCertPath)
 		require.NoError(t, os.Mkdir(caCertPath, 0755))
 		if caCerts != nil {
 			for i := range caCerts {
@@ -253,6 +296,15 @@ func prepareTestDir(t *testing.T, caCerts []*x509.Certificate, pemEncodeCA bool,
 				}
 				writeFile(t, filepath.Join(caCertPath, fmt.Sprintf("ca.%d.crt", i)), b, 0644)
 			}
+		}
+	}
+
+	if hashes != nil {
+		hashPath := filepath.Join(dir, "hashes")
+		hcl += fmt.Sprintf("hash_path = \"%s\"\n", hashPath)
+		require.NoError(t, os.Mkdir(hashPath, 0755))
+		for i := range hashes {
+			writeFile(t, filepath.Join(hashPath, hashes[i]), []byte{}, 0644)
 		}
 	}
 
