@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	svidExpected = "spiffe://domain.test/spire/agent/tpm/c1XbxrikL+sgdCw7hKFlmh2/y/QenHiIfLazBlsG/yQ="
+	svidExpected = "spiffe://domain.test/spire/agent/tpm/7355dbc6b8a42feb20742c3b84a1659a1dbfcbf41e9c78887cb6b3065b06ff24"
 	testKey, _   = pemutil.ParseSigner([]byte(`-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgy8ps3oQaBaSUFpfd
 XM13o+VSA0tcZteyTvbOdIQNVnKhRANCAAT4dPIORBjghpL5O4h+9kyzZZUAFV9F
@@ -215,13 +215,13 @@ func TestAttestor(t *testing.T) {
 			require.NotNil(result)
 			require.Len(result.SVID, 1)
 			require.Len(result.SVID[0].URIs, 1)
-			require.Equal(svidExpected, result.SVID[0].URIs[0].String())
+			require.Equal(result.SVID[0].URIs[0].String(), svidExpected)
 			require.NotNil(result.Key)
 			require.NotNil(result.Bundle)
 
 			rootCAs := result.Bundle.RootCAs()
 			require.Len(rootCAs, 1)
-			require.Equal(caCert.Raw, rootCAs[0].Raw)
+			require.Equal(rootCAs[0].Raw, caCert.Raw)
 		})
 	}
 }
