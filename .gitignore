@@ -3,5 +3,8 @@
 /tpm_attestor_agent
 /get_tpm_pubhash
 
+# releases
+/spire-tpm-plugin-*.tar.gz
+
 # jetbrains
 .idea
