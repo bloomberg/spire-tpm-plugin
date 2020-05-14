@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	hashExpected = "7355dbc6b8a42feb20742c3b84a1659a1dbfcbf41e9c78887cb6b3065b06ff24"
+	hashExpected = "1b5bbe2e96054f7bc34ebe7ba9a4a9eac5611c6879285ceff6094fa556af485c"
 	svidExpected = "spiffe://domain.test/spire/agent/tpm/" + hashExpected
 	invalidHash  = "0000000000000000000000000000000000000000000000000000000000000000"
 	testKey, _   = pemutil.ParseSigner([]byte(`-----BEGIN PRIVATE KEY-----
@@ -171,7 +171,7 @@ func TestAttestor(t *testing.T) {
 			name:            "error invalid hash",
 			bootstrapBundle: caCert,
 			validateHashes:  []string{invalidHash},
-			err:             "could not validate EK certificate",
+			err:             "could not validate EK",
 		},
 		{
 			name:            "error invalid hash, invalid CA",

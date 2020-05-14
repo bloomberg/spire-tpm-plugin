@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	tpmPubHashExpected = "7355dbc6b8a42feb20742c3b84a1659a1dbfcbf41e9c78887cb6b3065b06ff24"
+	tpmPubHashExpected = "1b5bbe2e96054f7bc34ebe7ba9a4a9eac5611c6879285ceff6094fa556af485c"
 )
 
 func TestFakeTPM(t *testing.T) {

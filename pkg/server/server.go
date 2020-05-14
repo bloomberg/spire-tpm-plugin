@@ -121,9 +121,12 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		return fmt.Errorf("tpm: failed to unmarshal attestation data: %v", err)
 	}
 
-	leaf, _ := gx509.ParseCertificate(attestationData.EK)
+	ek, err := common.DecodeEK(attestationData.EK)
+	if err != nil {
+		return err
+	}
 
-	hashEncoded, err := common.GetPubHash(leaf)
+	hashEncoded, err := common.GetPubHash(ek)
 	if err != nil {
 		return fmt.Errorf("tpm: could not get public key hash: %v", err)
 	}
@@ -137,7 +140,7 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		}
 	}
 
-	if !validEK && p.config.CaPath != "" {
+	if !validEK && p.config.CaPath != "" && ek.Certificate != nil {
 		files, err := ioutil.ReadDir(p.config.CaPath)
 		if err != nil {
 			return fmt.Errorf("tpm: could not open ca directory: %v", err)
@@ -168,7 +171,7 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		opts := gx509.VerifyOptions{
 			Roots: roots,
 		}
-		_, err = leaf.Verify(opts)
+		_, err = ek.Certificate.Verify(opts)
 		if err != nil {
 			return fmt.Errorf("tpm: could not verify cert: %v", err)
 		}
@@ -176,12 +179,12 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 	}
 
 	if !validEK {
-		return fmt.Errorf("tpm: could not validate EK certificate")
+		return fmt.Errorf("tpm: could not validate EK")
 	}
 
 	ap := attest.ActivationParameters{
 		TPMVersion: attest.TPMVersion20,
-		EK:         leaf.PublicKey,
+		EK:         ek.Public,
 		AK:         *attestationData.AK,
 	}
 
