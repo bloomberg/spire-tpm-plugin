@@ -1,5 +1,5 @@
 // this file has been adapted from the following spire node attestation test file:
-// https://github.com/spiffe/spire/blob/62e723fafafe322cb68e4d494d96cb29695a7b37/pkg/agent/attestor/node/node_test.go
+// https://github.com/spiffe/spire/blob/v0.10.0/pkg/agent/attestor/node/node_test.go
 
 package agent
 
@@ -9,25 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/bloomberg/spire-tpm-plugin/pkg/common_test"
-	"github.com/bloomberg/spire-tpm-plugin/pkg/server"
-	"github.com/google/go-attestation/attest"
-	sim "github.com/google/go-tpm-tools/simulator"
-	"github.com/google/go-tpm-tools/tpm2tools"
-	"github.com/sirupsen/logrus/hooks/test"
-	attestor "github.com/spiffe/spire/pkg/agent/attestor/node"
-	"github.com/spiffe/spire/pkg/agent/plugin/keymanager/memory"
-	"github.com/spiffe/spire/pkg/common/catalog"
-	"github.com/spiffe/spire/pkg/common/idutil"
-	"github.com/spiffe/spire/pkg/common/pemutil"
-	"github.com/spiffe/spire/pkg/common/telemetry"
-	"github.com/spiffe/spire/proto/spire/agent/keymanager"
-	agentnodeattestor "github.com/spiffe/spire/proto/spire/agent/nodeattestor"
-	spi "github.com/spiffe/spire/proto/spire/common/plugin"
-	servernodeattestor "github.com/spiffe/spire/proto/spire/server/nodeattestor"
-	"github.com/spiffe/spire/test/fakes/fakeagentcatalog"
-	"github.com/spiffe/spire/test/spiretest"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -35,6 +16,27 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/bloomberg/spire-tpm-plugin/pkg/common_test"
+	"github.com/bloomberg/spire-tpm-plugin/pkg/server"
+	"github.com/google/go-attestation/attest"
+	sim "github.com/google/go-tpm-tools/simulator"
+	"github.com/google/go-tpm-tools/tpm2tools"
+	attestor "github.com/spiffe/spire/pkg/agent/attestor/node"
+	spi "github.com/spiffe/spire/proto/spire/common/plugin"
+
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/spiffe/spire/pkg/agent/plugin/keymanager"
+	"github.com/spiffe/spire/pkg/agent/plugin/keymanager/memory"
+	agentnodeattestor "github.com/spiffe/spire/pkg/agent/plugin/nodeattestor"
+	"github.com/spiffe/spire/pkg/common/catalog"
+	"github.com/spiffe/spire/pkg/common/idutil"
+	"github.com/spiffe/spire/pkg/common/pemutil"
+	"github.com/spiffe/spire/pkg/common/telemetry"
+	servernodeattestor "github.com/spiffe/spire/pkg/server/plugin/nodeattestor"
+	"github.com/spiffe/spire/test/fakes/fakeagentcatalog"
+	"github.com/spiffe/spire/test/spiretest"
+	"github.com/stretchr/testify/require"
 )
 
 var (

@@ -19,8 +19,8 @@ package main
 import (
 	"github.com/bloomberg/spire-tpm-plugin/pkg/agent"
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
+	"github.com/spiffe/spire/pkg/agent/plugin/nodeattestor"
 	"github.com/spiffe/spire/pkg/common/catalog"
-	"github.com/spiffe/spire/proto/spire/agent/nodeattestor"
 )
 
 func main() {
