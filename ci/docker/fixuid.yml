@@ -1,0 +1,5 @@
+user: docker
+group: docker
+paths:
+  - /home/docker
+  - /home/docker/go

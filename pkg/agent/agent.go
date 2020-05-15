@@ -125,7 +125,8 @@ func (p *TPMAttestorPlugin) GetPluginInfo(context.Context, *spi.GetPluginInfoReq
 func (p *TPMAttestorPlugin) calculateResponse(ec *attest.EncryptedCredential, aikBytes []byte) (*common.ChallengeResponse, error) {
 	tpm := p.tpm
 	if tpm == nil {
-		tpm, err := attest.OpenTPM(&attest.OpenConfig{
+		var err error
+		tpm, err = attest.OpenTPM(&attest.OpenConfig{
 			TPMVersion: attest.TPMVersion20,
 		})
 		if err != nil {
@@ -152,7 +153,8 @@ func (p *TPMAttestorPlugin) calculateResponse(ec *attest.EncryptedCredential, ai
 func (p *TPMAttestorPlugin) generateAttestationData() (*common.AttestationData, []byte, error) {
 	tpm := p.tpm
 	if tpm == nil {
-		tpm, err := attest.OpenTPM(&attest.OpenConfig{
+		var err error
+		tpm, err = attest.OpenTPM(&attest.OpenConfig{
 			TPMVersion: attest.TPMVersion20,
 		})
 		if err != nil {

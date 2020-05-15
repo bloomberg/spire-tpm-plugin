@@ -1,0 +1,28 @@
+name: Main
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup Go
+      uses: actions/setup-go@v2
+
+    - name: Print Go Version
+      run: go version
+
+    - name: Build
+      run: |
+        ./ci/build.sh
+
+    - name: Test plugin
+      run: |
+        ./ci/test.sh plugin
+
+    - name: Test tools
+      run: |
+        ./ci/test.sh tools

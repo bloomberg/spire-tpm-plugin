@@ -1,2 +1,7 @@
+# go binaries
 /tpm_attestor_server
 /tpm_attestor_agent
+/get_tpm_pubhash
+
+# jetbrains
+.idea
