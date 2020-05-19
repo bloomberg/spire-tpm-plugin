@@ -1,3 +1,6 @@
+// this code is derived from example at
+// https://github.com/microsoft/TSS.MSR/blob/master/Tpm2Tester/TpmProxy/NetProxy.cs
+
 package common_test
 
 import (
@@ -8,9 +11,6 @@ import (
 	"net"
 	"os"
 )
-
-// this code is derived from example at
-// https://github.com/microsoft/TSS.MSR/blob/master/Tpm2Tester/TpmProxy/NetProxy.cs
 
 type tcpTpmCommands uint32
 
@@ -39,6 +39,8 @@ const (
 var zeroInt = []byte{0, 0, 0, 0}
 var oneInt = []byte{1, 1, 1, 1}
 
+// tcpServer starts a TCP proxy and services connections serially, waiting until
+// a connection has been closed before accepting the next connection
 func tcpServer(rw io.ReadWriter, port int, readyCh chan<- struct{}, closeCh <-chan struct{},
 	handler func(io.ReadWriter, net.Conn, chan<- error, chan<- struct{})) error {
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("localhost:%d", port))
@@ -83,6 +85,7 @@ func tcpAcceptor(listener net.Listener, acceptCh chan<- net.Conn, port int) {
 	}
 }
 
+// platformHandler serves a platform TCP proxy for the Microsoft TPM2 simulator
 func platformHandler(rw io.ReadWriter, conn net.Conn, errorCh chan<- error, doneCh chan<- struct{}) {
 	defer conn.Close()
 	for {
@@ -103,6 +106,7 @@ func platformHandler(rw io.ReadWriter, conn net.Conn, errorCh chan<- error, done
 	}
 }
 
+// commandHandler serves a command TCP proxy for the Microsoft TPM2 simulator
 func commandHandler(rw io.ReadWriter, conn net.Conn, errorCh chan<- error, doneCh chan<- struct{}) {
 	defer conn.Close()
 	for {

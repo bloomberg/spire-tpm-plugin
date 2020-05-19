@@ -13,6 +13,10 @@ import (
 	"runtime"
 )
 
+// LoadEKCert starts two TCP proxies necessary for forwarding tpm2-tools commands
+// to the Microsoft TPM2 simulator using TPM2TOOLS_TCTI=mssim
+// It then calls ./ci/tpm2_ek_cert_generator/generate_ek_cert.sh to
+// generate and load a certificate into the simulator
 func LoadEKCert(rw io.ReadWriter) (*x509.Certificate, *bytes.Buffer, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	dir, err := filepath.Abs(filepath.Dir(filename))
@@ -31,17 +35,23 @@ func LoadEKCert(rw io.ReadWriter) (*x509.Certificate, *bytes.Buffer, error) {
 		return nil, nil, errors.New("could not locate ./ci/tpm2_ek_cert_generator")
 	}
 
+	// start the command TCP proxy
 	closeCh2321 := make(chan struct{})
 	readyCh2321 := make(chan struct{})
 	go tcpServer(rw, 2321, readyCh2321, closeCh2321, commandHandler)
 	defer func() { closeCh2321 <- struct{}{} }()
+
+	// start the platform TCP proxy
 	closeCh2322 := make(chan struct{})
 	readyCh2322 := make(chan struct{})
 	go tcpServer(rw, 2322, readyCh2322, closeCh2322, platformHandler)
 	defer func() { closeCh2322 <- struct{}{} }()
+
+	// wait for the proxies to be ready
 	<-readyCh2321
 	<-readyCh2322
 
+	// generate certificate and load into TPM
 	log := &bytes.Buffer{}
 	cmd := exec.Command("sh", "-c", "make clean && exec make")
 	cmd.Dir = generatorPath
@@ -52,6 +62,7 @@ func LoadEKCert(rw io.ReadWriter) (*x509.Certificate, *bytes.Buffer, error) {
 		return nil, log, err
 	}
 
+	// read the certificate
 	f, err := os.Open(filepath.Join(generatorPath, "__working_dir", "tpm2_CA.crt"))
 	if err != nil {
 		return nil, nil, err
