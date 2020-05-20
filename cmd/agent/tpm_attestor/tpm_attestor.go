@@ -17,111 +17,14 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-
-	"github.com/hashicorp/hcl"
+	"github.com/bloomberg/spire-tpm-plugin/pkg/agent"
+	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/proto/spire/agent/nodeattestor"
-	spc "github.com/spiffe/spire/proto/spire/common"
-	spi "github.com/spiffe/spire/proto/spire/common/plugin"
-
-	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
 )
 
-// TPMAttestorPlugin implements the nodeattestor Plugin interface
-type TPMAttestorPlugin struct {
-	config *TPMAttestorPluginConfig
-}
-
-type TPMAttestorPluginConfig struct {
-	trustDomain string
-}
-
-func (p *TPMAttestorPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) (*spi.ConfigureResponse, error) {
-	config := &TPMAttestorPluginConfig{}
-	if err := hcl.Decode(config, req.Configuration); err != nil {
-		return nil, fmt.Errorf("failed to decode configuration file: %v", err)
-	}
-
-	if req.GlobalConfig == nil {
-		return nil, errors.New("global configuration is required")
-	}
-	if req.GlobalConfig.TrustDomain == "" {
-		return nil, errors.New("trust_domain is required")
-	}
-
-	config.trustDomain = req.GlobalConfig.TrustDomain
-	p.config = config
-
-	return &spi.ConfigureResponse{}, nil
-}
-
-func New() *TPMAttestorPlugin {
-	return &TPMAttestorPlugin{}
-}
-
-func (p *TPMAttestorPlugin) FetchAttestationData(stream nodeattestor.NodeAttestor_FetchAttestationDataServer) error {
-	if p.config == nil {
-		return errors.New("tpm: plugin not configured")
-	}
-
-	attestationData, aik, err := common.GenerateAttestationData()
-	if err != nil {
-		return fmt.Errorf("tpm: failed to generate attestation data: %v", err)
-	}
-
-	attestationDataBytes, err := json.Marshal(attestationData)
-	if err != nil {
-		return fmt.Errorf("tpm: failed to marshal attestation data to json: %v", err)
-	}
-
-	if err := stream.Send(&nodeattestor.FetchAttestationDataResponse{
-		AttestationData: &spc.AttestationData{
-			Type: common.PluginName,
-			Data: attestationDataBytes,
-		},
-	}); err != nil {
-		return fmt.Errorf("tpm: failed to send attestation data: %v", err)
-	}
-
-	resp, err := stream.Recv()
-	if err != nil {
-		return fmt.Errorf("tpm: failed to receive challenge: %v", err)
-	}
-
-	challenge := new(common.Challenge)
-	if err := json.Unmarshal(resp.Challenge, challenge); err != nil {
-		return fmt.Errorf("tpm: failed to unmarshal challenge: %v", err)
-	}
-
-	response, err := common.CalculateResponse(challenge.EC, aik)
-	if err != nil {
-		return fmt.Errorf("tpm: failed to calculate response: %v", err)
-	}
-
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("tpm: unable to marshal challenge response: %v", err)
-	}
-
-	if err := stream.Send(&nodeattestor.FetchAttestationDataResponse{
-		Response: responseBytes,
-	}); err != nil {
-		return fmt.Errorf("tpm: unable to send challenge response: %v", err)
-	}
-
-	return nil
-}
-
-func (p *TPMAttestorPlugin) GetPluginInfo(context.Context, *spi.GetPluginInfoRequest) (*spi.GetPluginInfoResponse, error) {
-	return &spi.GetPluginInfoResponse{}, nil
-}
-
 func main() {
-	p := New()
+	p := agent.New()
 	catalog.PluginMain(
 		catalog.MakePlugin(common.PluginName, nodeattestor.PluginServer(p)),
 	)

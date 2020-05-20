@@ -1,0 +1,15 @@
+version: "3.4"
+
+services:
+  go:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: spire-tpm-plugin-ci
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    volumes:
+      - gopath:/home/docker/go
+      - ../../:/home/docker/spire-tpm-plugin
+
+volumes:
+  gopath:

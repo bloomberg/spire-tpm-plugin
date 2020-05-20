@@ -20,7 +20,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -48,72 +47,6 @@ type KeyData struct {
 
 type ChallengeResponse struct {
 	Secret []byte
-}
-
-func CalculateResponse(ec *attest.EncryptedCredential, aikBytes []byte) (*ChallengeResponse, error) {
-	tpm, err := attest.OpenTPM(&attest.OpenConfig{
-		TPMVersion: attest.TPMVersion20,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to tpm: %v", err)
-	}
-	defer tpm.Close()
-
-	aik, err := tpm.LoadAK(aikBytes)
-	if err != nil {
-		return nil, err
-	}
-	defer aik.Close(tpm)
-
-	secret, err := aik.ActivateCredential(tpm, *ec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to activate credential: %v", err)
-	}
-	return &ChallengeResponse{
-		Secret: secret,
-	}, nil
-}
-
-func GenerateAttestationData() (*AttestationData, []byte, error) {
-	tpm, err := attest.OpenTPM(&attest.OpenConfig{
-		TPMVersion: attest.TPMVersion20,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	defer tpm.Close()
-	eks, err := tpm.EKs()
-	if err != nil {
-		return nil, nil, err
-	}
-	ak, err := tpm.NewAK(nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer ak.Close(tpm)
-	params := ak.AttestationParameters()
-
-	var ekCert *x509.Certificate
-	for _, ek := range eks {
-		if ek.Certificate != nil && ek.Certificate.PublicKeyAlgorithm == x509.RSA {
-			ekCert = ek.Certificate
-			break
-		}
-	}
-
-	if ekCert == nil {
-		return nil, nil, errors.New("no EK available")
-	}
-
-	aikBytes, err := ak.Marshal()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &AttestationData{
-		EK: ekCert.Raw,
-		AK: &params,
-	}, aikBytes, nil
 }
 
 func AgentID(trustDomain string, pubHash string) string {

@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -33,9 +34,18 @@ func main() {
 		log.Fatalln(err)
 	}
 	defer tpm.Close()
-	eks, err := tpm.EKs()
+
+	tpmPubHash, err := getTpmPubHash(tpm)
 	if err != nil {
 		log.Fatalln(err)
+	}
+	fmt.Println(tpmPubHash)
+}
+
+func getTpmPubHash(tpm *attest.TPM) (string, error) {
+	eks, err := tpm.EKs()
+	if err != nil {
+		return "", err
 	}
 
 	var ekCert *x509.Certificate
@@ -46,13 +56,13 @@ func main() {
 		}
 	}
 	if ekCert == nil {
-		log.Fatalln("could not find RSA public key")
+		return "", errors.New("could not find RSA public key")
 	}
 
 	hashEncoded, err := common.GetPubHash(ekCert)
 	if err != nil {
-		log.Fatalln(err)
+		return "", err
 	}
 
-	fmt.Println(hashEncoded)
+	return hashEncoded, nil
 }
