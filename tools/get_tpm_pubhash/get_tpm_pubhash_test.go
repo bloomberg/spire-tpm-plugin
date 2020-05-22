@@ -25,19 +25,33 @@ func TestFakeTPM(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, log, err := common_test.LoadEKCert(s)
-	require.NoError(t, err, log)
-
-	eks, err := tpm.EKs()
-	require.NoError(t, err)
-	require.Len(t, eks, 1)
-	require.NotNil(t, eks[0].Public)
-
+	// test can read manufacturer
 	info, err := tpm.Info()
 	require.NoError(t, err)
 	require.Equal(t, info.Manufacturer.String(), "Microsoft")
 
+	// test without cert
+	eks, err := tpm.EKs()
+	require.NoError(t, err)
+	require.Len(t, eks, 1)
+	require.Nil(t, eks[0].Certificate)
+	require.NotNil(t, eks[0].Public)
+
 	tpmPubHash, err := getTpmPubHash(tpm)
+	require.NoError(t, err)
+	require.Equal(t, tpmPubHash, tpmPubHashExpected)
+
+	// test with cert
+	_, log, err := common_test.LoadEKCert(s)
+	require.NoError(t, err, log)
+
+	eks, err = tpm.EKs()
+	require.NoError(t, err)
+	require.Len(t, eks, 1)
+	require.NotNil(t, eks[0].Certificate)
+	require.NotNil(t, eks[0].Public)
+
+	tpmPubHash, err = getTpmPubHash(tpm)
 	require.NoError(t, err)
 	require.Equal(t, tpmPubHash, tpmPubHashExpected)
 }
