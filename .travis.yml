@@ -1,0 +1,12 @@
+language: go
+services:
+  - docker
+
+go:
+  - 1.12
+
+
+script:
+  - docker --version
+  - ./ci/build.sh
+  - ./ci/test.sh
