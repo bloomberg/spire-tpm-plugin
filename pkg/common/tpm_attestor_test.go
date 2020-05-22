@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// TestEncodeDecode tests multiple iterations of encoding/decoding
+// certificates, EC public keys, and RSA public keys
+// test data generated using OpenSSL 1.1.1f on Ubuntu 20.04
 func TestEncodeDecode(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -13,49 +16,71 @@ func TestEncodeDecode(t *testing.T) {
 		pubHash  string
 	}{
 		{
+			// openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+			//   -keyout key.pem -out cert.pem -subj "/CN=test.local" \
+			// && openssl x509 -pubkey -noout -in cert.pem  > pub.pem \
+			// && openssl rsa -inform PEM -in pub.pem -pubin -outform DER -out pub.crt \
+			// && echo "RSA Cert" \
+			// && cat cert.pem \
+			// && echo "RSA Cert Public Key Hash" \
+			// && sha256sum pub.crt | cut -d' ' -f1
 			name:    "certificate",
 			hasCert: true,
 			pemBytes: []byte(`-----BEGIN CERTIFICATE-----
-MIIDATCCAekCAQEwDQYJKoZIhvcNAQELBQAwQzELMAkGA1UEBhMCVVMxCzAJBgNV
-BAgMAk5DMQwwCgYDVQQHDANSVFAxDDAKBgNVBAoMA2FwcDELMAkGA1UEAwwCY2Ew
-HhcNMjAwNTE0MjAxODEzWhcNMzAwNTEyMjAxODEzWjBKMQswCQYDVQQGEwJVUzEL
-MAkGA1UECAwCTkMxDDAKBgNVBAcMA1JUUDEMMAoGA1UECgwDYXBwMRIwEAYDVQQD
-DAlsb2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDYthYW
-M3GRdRFfPDSr7b8/wHMegcZYxRvVjN//NlqZoUsEF4ZUNUBmJkj40y0TtdZ5/iNe
-gce2b8kuSTDrP36149PdbJCztM3ChNu1XnwPe02+b8pts/d39lZIVASGVPSBXWyo
-QFBA+b3ihm3rL3FfIGPc9iY/42MlTrNzYmQgbo0VkyXyWdc3DlDwzfBYpmPP18pC
-+is7424aBfIKAXT0/+kX0C8e4fB4l6IG04xYAnP2XL+3C1b40x6NFUSZJfQrZQlW
-Urm9aY/JYmCy19aX4cF0DboF07ieISrBJS1q3iiBtB0DCh71P/yIlij9E7tbxEL6
-wFswPuOpbLUdEtojAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAJSJKKjo+KbrTdUs
-oqkXoE96UL0GDIy7lPXLZOi/ayUKCj4Zthpt5HDpFfi0Uu8hwA1jN3jkCY28xE/2
-WdPc5ya2wSqdXT5fM1gl3LfbBwAVOP/2yUKBRpFn6KVCjTA/QbqmZUQ55Z4L2jTb
-q9pDohFRADNYagEs/Vhf+b3PnL/Nzx4+1BOp3KGtUdGSDX5O0BB8+slBMC4YmNB8
-ASWkXRbZ0wBbY1TWmDEuSBVSRyfS3v/BmjMfAEjzZ/+BshnWQSBh2+W78kNRfcvS
-09/II3+mWolAcYX7Z0O5gqTAl6vKuWKekuaF1cQR5kNy9nZqdSWywLaXFPryqrjS
-fcSRqGI=
+MIIDCzCCAfOgAwIBAgIUXCtKOpyneubNfS21IabW5vFf+zAwDQYJKoZIhvcNAQEL
+BQAwFTETMBEGA1UEAwwKdGVzdC5sb2NhbDAeFw0yMDA1MjIxODUyNTlaFw0zMDA1
+MjAxODUyNTlaMBUxEzARBgNVBAMMCnRlc3QubG9jYWwwggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQCiqLKDAlhpwC/10Ud3BloWYTA1sJnTXdZJpTj/LmTc
+mQpsFk+3OJETpk65fYEpmOw8aKL7AKOEwWx1K2T6OhoCdeKtsYNOlUzXfOOqyLGo
+JH+PL9G/M+Oyarbqt0kvM/I+KG8TBEwBN3jnU3X5qPsifhAjWN/M0ISC/Bnhqkex
+mf9wZOawekJu71P8zeHd71b2uXHBJqLlVezrKe9Hy2wV6MopFdzBiPTTBUAnDo4i
+V1KL/rjDk5sR4AJqBUtcSWGfMH6PiwHhD4f6yLI6x+CBCc9JjCaSyP5vOs3bWYww
+16R8jVZutNYINKJRUXo02N9iWh9MHLJksE3vCt2RsOtbAgMBAAGjUzBRMB0GA1Ud
+DgQWBBRuIHGzo1hCDH+gsy9GHxiYCz37uDAfBgNVHSMEGDAWgBRuIHGzo1hCDH+g
+sy9GHxiYCz37uDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCh
+fbQOvfAAktclolIzASSKVv+9RebepmLas3zNxQugDDmzGHolgRdhPxEdqzq8Jne1
+7RQEu8WXoC8thtFzuDkf6F8/Y5FlGJ9s9obSO/6XRYE5tiMpmaza096FWg6h6c3d
+5CyX1cIB/JXjr+3WvJ6eU9/QZMxbmoYZkYJlNFFq73N1DcmCPykOjb/F+JGtTQ2E
+vcszWkx/sCo1X929yCjQIxJteoevyc7/q68UQgjUIJXnn53DU4N9gGa+OcC7EBnx
+8cxCo2SEjmjqAavUPTmvyAffAPjuIMB+Hhs6N8FFhCSvkMxvh+/HvgPPHUEZ7Z0t
+sKhVipBdORVGNLHWEhFM
 -----END CERTIFICATE-----`),
-			pubHash: "e56864680c748f0318e1c7cbc24aeb2259f59c4bf11c2ed3b778e0329db209d0",
+			pubHash: "6607c38c4be632bf69050ac042850d265962460937ed11aaf68a850409e3b512",
 		},
 		{
+			// openssl ecparam -name prime256v1 -genkey -noout -out key.pem \
+			// && openssl ec -in key.pem -pubout  > pub.pem \
+			// && openssl ec -inform PEM -in pub.pem -pubin -outform DER -out pub.crt \
+			// && echo "EC Public Key" \
+			// && cat pub.pem \
+			// && echo "EC Public Key Hash" \
+			// && sha256sum pub.crt | cut -d' ' -f1
 			name: "ec public key",
 			pemBytes: []byte(`-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7mnx2ikpijr+7wbh/S67NKPeU7yE
-6IDPKOOrt7W15Xs+O2aW2xMNKCCaC2QAMnDuXKogKnOr7Ri0firFrSlGIg==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEJxAs7EUiM56NXQH2wcMn20UJk/n
+EEj0/TcVn7PJ3S/Yij56M5LpPDcILIeb3wc/JU4oHnPPuqm3Epz/2kEh2w==
 -----END PUBLIC KEY-----`),
-			pubHash: "d6c53c09ab792f1ea72d2ed52d7c9e587b1934489f7cde87d716e03f9fbda770",
+			pubHash: "5f923ceaaa7fa4fff96cdad0e31ea315b702f871aa31eb7fe9b2bfa3934a38d4",
 		},
 		{
+			// openssl genrsa -out key.pem 2048 \
+			// && openssl rsa -in key.pem -pubout  > pub.pem \
+			// && openssl rsa -inform PEM -in pub.pem -pubin -outform DER -out pub.crt \
+			// && echo "RSA Public Key" \
+			// && cat pub.pem \
+			// && echo "RSA Public Key Hash" \
+			// && sha256sum pub.crt | cut -d' ' -f1
 			name: "rsa public key",
 			pemBytes: []byte(`-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0SizQMxTx/8xN1IW2Nld
-r5CcQVo9nk6p3fkkCIgzC1HsNX953LAKU5Xz1aSGxFQGtO7+hhMH++3qEtxgpntA
-97pDfum4Rd1OUTGy+rHFrKNehBn/M9vfXeToDS5UuOr93tBR7KRJ7sW724GGAJAK
-AGSfS3GLIpvcJ+gvzQoD76ox1d4bnLBXCAxAfuj3qYaeaNr4M5OKVOYNWk4dU+8U
-ULm2HTqoNWSLkKqTaOn4VpQ2isFpDRpiBNq5N5mafaPWHeZixz2HAkajN94kAuk3
-zopyzROwOXvNxRe6ttycHP34Hh7cRZAelyyJH5qrTQe/p+W1G5ssuWLd3Z1/qbbO
-ZQIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuAINS/5JILujVnQHq0xx
+hl3X7fepS+D6CtTa2ONl+UkJVpQTFUQXC6HXwMgCBmJHpcR125Rhroz77bgJy+Rx
+QUmLsu0uOvh8KxaWWt7XKO7CqkWWJyHFydMKrfc84aTabI/QLHIqyRxCqYV67OPT
+sLZWz8E3YGiZdim0DsNg43pR5FON1tDTFfWxen7XcY64W4iR/4T3xNe+i7SvkJGL
+plkG4ujs7qzCtmB6JM+SnlZ0ONMTu7pqX6vYuV38UpQeb3KusDLwagdf5w7/I1Jf
+1mFUYPmMRKBZazmlnREWXs4yWFpKroqaUoz9w6+juunASqFM0XKZwE5EjbupsJfc
+VQIDAQAB
 -----END PUBLIC KEY-----`),
-			pubHash: "4d529cb0f819fd7d6fe8cd7d3fbc1a67178ae1e86c44cdc73e651646bc1517c9",
+			pubHash: "64e3462d87b1c6dfe127e43568f8298b8053c2488f4e46780f4c9778760f5506",
 		},
 	}
 
