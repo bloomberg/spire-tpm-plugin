@@ -13,6 +13,7 @@ fi
 test_dirs=()
 if [ "$option" = "plugin" ] || [ "$option" = "all" ]; then
   test_dirs+=("pkg/agent")
+  test_dirs+=("pkg/common")
 fi
 if [ "$option" = "tools" ] || [ "$option" = "all" ]; then
   test_dirs+=("tools/get_tpm_pubhash")

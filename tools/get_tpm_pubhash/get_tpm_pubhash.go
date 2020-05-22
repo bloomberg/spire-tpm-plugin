@@ -22,7 +22,6 @@ import (
 	"log"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
 )
 
@@ -48,18 +47,12 @@ func getTpmPubHash(tpm *attest.TPM) (string, error) {
 		return "", err
 	}
 
-	var ekCert *x509.Certificate
-	for _, ek := range eks {
-		if ek.Certificate != nil && ek.Certificate.PublicKeyAlgorithm == x509.RSA {
-			ekCert = ek.Certificate
-			break
-		}
-	}
-	if ekCert == nil {
-		return "", errors.New("could not find RSA public key")
+	if len(eks) == 0 {
+		return "", errors.New("no EK available")
 	}
 
-	hashEncoded, err := common.GetPubHash(ekCert)
+	ek := &eks[0]
+	hashEncoded, err := common.GetPubHash(ek)
 	if err != nil {
 		return "", err
 	}

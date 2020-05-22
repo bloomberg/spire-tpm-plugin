@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/go-attestation/attest"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+
+	"github.com/google/go-attestation/attest"
 
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
 	gx509 "github.com/google/certificate-transparency-go/x509"
@@ -42,6 +44,7 @@ type TPMAttestorPlugin struct {
 type TPMAttestorPluginConfig struct {
 	trustDomain string
 	CaPath      string `hcl:"ca_path"`
+	HashPath    string `hcl:"hash_path"`
 }
 
 func New() *TPMAttestorPlugin {
@@ -68,8 +71,29 @@ func (p *TPMAttestorPlugin) Configure(ctx context.Context, req *spi.ConfigureReq
 	if req.GlobalConfig.TrustDomain == "" {
 		return nil, errors.New("trust_domain is required")
 	}
-	if config.CaPath == "" {
-		config.CaPath = "/opt/spire/.data/certs"
+	if config.CaPath != "" {
+		if _, err := os.Stat(config.CaPath); os.IsNotExist(err) {
+			return nil, errors.New(fmt.Sprintf("ca_path '%s' does not exist", config.CaPath))
+		}
+	} else {
+		var tryCaPath = "/opt/spire/.data/certs"
+		if _, err := os.Stat(tryCaPath); !os.IsNotExist(err) {
+			config.CaPath = tryCaPath
+		}
+	}
+	if config.HashPath != "" {
+		if _, err := os.Stat(config.HashPath); os.IsNotExist(err) {
+			return nil, errors.New(fmt.Sprintf("hash_path '%s' does not exist", config.HashPath))
+		}
+	} else {
+		var tryHashPath = "/opt/spire/.data/hashes"
+		if _, err := os.Stat(tryHashPath); !os.IsNotExist(err) {
+			config.HashPath = tryHashPath
+		}
+	}
+
+	if config.CaPath == "" && config.HashPath == "" {
+		return nil, errors.New("either ca_path, hash_path, or both are required")
 	}
 
 	config.trustDomain = req.GlobalConfig.TrustDomain
@@ -97,46 +121,70 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 		return fmt.Errorf("tpm: failed to unmarshal attestation data: %v", err)
 	}
 
-	leaf, _ := gx509.ParseCertificate(attestationData.EK)
-
-	files, err := ioutil.ReadDir(p.config.CaPath)
+	ek, err := common.DecodeEK(attestationData.EK)
 	if err != nil {
-		return fmt.Errorf("tpm: could not open ca directory: %v", err)
+		return err
 	}
 
-	roots := gx509.NewCertPool()
-	for _, file := range files {
-		filename := filepath.Join(p.config.CaPath, file.Name())
-		certData, err := ioutil.ReadFile(filename)
+	hashEncoded, err := common.GetPubHash(ek)
+	if err != nil {
+		return fmt.Errorf("tpm: could not get public key hash: %v", err)
+	}
+
+	validEK := false
+
+	if p.config.HashPath != "" {
+		filename := filepath.Join(p.config.HashPath, hashEncoded)
+		if _, err := os.Stat(filename); !os.IsNotExist(err) {
+			validEK = true
+		}
+	}
+
+	if !validEK && p.config.CaPath != "" && ek.Certificate != nil {
+		files, err := ioutil.ReadDir(p.config.CaPath)
 		if err != nil {
-			return fmt.Errorf("tpm: could not read cert data for '%s': %v", filename, err)
+			return fmt.Errorf("tpm: could not open ca directory: %v", err)
 		}
 
-		ok := roots.AppendCertsFromPEM(certData)
-		if ok {
-			continue
+		roots := gx509.NewCertPool()
+		for _, file := range files {
+			filename := filepath.Join(p.config.CaPath, file.Name())
+			certData, err := ioutil.ReadFile(filename)
+			if err != nil {
+				return fmt.Errorf("tpm: could not read cert data for '%s': %v", filename, err)
+			}
+
+			ok := roots.AppendCertsFromPEM(certData)
+			if ok {
+				continue
+			}
+
+			root, err := gx509.ParseCertificate(certData)
+			if err == nil {
+				roots.AddCert(root)
+				continue
+			}
+
+			return fmt.Errorf("tpm: could not parse cert data for '%s': %v", filename, err)
 		}
 
-		root, err := gx509.ParseCertificate(certData)
-		if err == nil {
-			roots.AddCert(root)
-			continue
+		opts := gx509.VerifyOptions{
+			Roots: roots,
 		}
-
-		return fmt.Errorf("tpm: could not parse cert data for '%s': %v", filename, err)
+		_, err = ek.Certificate.Verify(opts)
+		if err != nil {
+			return fmt.Errorf("tpm: could not verify cert: %v", err)
+		}
+		validEK = true
 	}
 
-	opts := gx509.VerifyOptions{
-		Roots: roots,
-	}
-	_, err = leaf.Verify(opts)
-	if err != nil {
-		return fmt.Errorf("tpm: could not verify cert: %v", err)
+	if !validEK {
+		return fmt.Errorf("tpm: could not validate EK")
 	}
 
 	ap := attest.ActivationParameters{
 		TPMVersion: attest.TPMVersion20,
-		EK:         leaf.PublicKey,
+		EK:         ek.Public,
 		AK:         *attestationData.AK,
 	}
 
@@ -172,11 +220,6 @@ func (p *TPMAttestorPlugin) Attest(stream nodeattestor.NodeAttestor_AttestServer
 
 	if !bytes.Equal(secret, response.Secret) {
 		return fmt.Errorf("tpm: incorrect secret from attestor")
-	}
-
-	hashEncoded, err := common.GetPubHash(leaf)
-	if err != nil {
-		return fmt.Errorf("tpm: could not get public key hash: %v", err)
 	}
 
 	return stream.Send(&nodeattestor.AttestResponse{
