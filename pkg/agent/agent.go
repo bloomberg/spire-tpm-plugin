@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
 
 	"github.com/hashicorp/hcl"
@@ -174,16 +173,14 @@ func (p *TPMAttestorPlugin) generateAttestationData() (*common.AttestationData, 
 	defer ak.Close(tpm)
 	params := ak.AttestationParameters()
 
-	var ekCert *x509.Certificate
-	for _, ek := range eks {
-		if ek.Certificate != nil && ek.Certificate.PublicKeyAlgorithm == x509.RSA {
-			ekCert = ek.Certificate
-			break
-		}
+	if len(eks) == 0 {
+		return nil, nil, errors.New("no EK available")
 	}
 
-	if ekCert == nil {
-		return nil, nil, errors.New("no EK available")
+	ek := &eks[0]
+	ekBytes, err := common.EncodeEK(ek)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	aikBytes, err := ak.Marshal()
@@ -192,7 +189,7 @@ func (p *TPMAttestorPlugin) generateAttestationData() (*common.AttestationData, 
 	}
 
 	return &common.AttestationData{
-		EK: ekCert.Raw,
+		EK: ekBytes,
 		AK: &params,
 	}, aikBytes, nil
 }

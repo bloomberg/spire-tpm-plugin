@@ -41,26 +41,48 @@ NodeAttestor "tpm" {
 	plugin_checksum = "sha256 of the plugin binary"
 	plugin_data {
 		ca_path = "/opt/spire/.data/certs"
+		hash_path = "/opt/spire/.data/hashes"
 	}
 }
 ```
 
 | key | type | required | description | default |
 |:----|:-----|:---------|:------------|:--------|
-| ca_path  | string |   | the path to the CA directory | /opt/spire/.data/certs |
+| ca_path | string |   | the path to the CA directory | /opt/spire/.data/certs |
+| hash_path | string |   | the path to the Hash directory | /opt/spire/.data/hashes |
 
-### Certificate Directory Configuration
+### Directory Configuration
 
-For this plugin to work, you need to have the certificate for the CA that signed your TPM's EK certificate. Drop all CA certs in the directory `ca_path`.
+For this plugin to work, either `ca_path`, `hash_path`, or both must be configured.
+
+#### Certificate Directory
+
+Contains the manufacturer CA cert that signed the TPM's EK certificate in PEM or DER format. Drop all manufacturer CA certs in the directory `ca_path`.
+
+*Note: not all TPM's have an EK certificate, if yours does not then use `hash_path`*
+
+#### Hash Directory
+
+Contains empty files named after the EK public key hash.  Use the `get_tpm_pubhash` command to print out the TPM's EK public key hash.  Example:
+
+```bash
+agent  $ ./get_tpm_pubhash
+1b5bbe2e96054f7bc34ebe7ba9a4a9eac5611c6879285ceff6094fa556af485c 
+
+server $ mkdir -p /opt/spire/.data/hashes
+server $ touch /opt/spire/.data/hashes/1b5bbe2e96054f7bc34ebe7ba9a4a9eac5611c6879285ceff6094fa556af485c
+```
 
 ## How it Works
 
 The plugin uses TPM credential activation as the method of attestation. The plugin operates as follows:
 
 1. Agent generates AK (attestation key) using TPM
-1. Agent sends the AK attestation parameters and EK certificate to the server
-1. Server inspects EK certificate and checks if it is signed by any chain in the directory specified by `ca_path`
-1. If the EK certificate is signed by one of the CAs, the server generates a credential activation challenge using
+1. Agent sends the AK attestation parameters and EK certificate or public key to the server
+1. Server inspects EK certificate or public key
+    1. If `hash_path` exists, and the public key hash matches filename in `hash_path`, validation passes
+    1. If `ca_path` exists, and the EK certificate was signed by any chain in `ca_path`, validation passes
+1. If validation passed, the server generates a credential activation challenge using
     1. The EK public key
     1. The AK attestation parameters
 1. Server sends challenge to agent

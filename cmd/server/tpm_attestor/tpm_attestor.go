@@ -20,7 +20,7 @@ import (
 	"github.com/bloomberg/spire-tpm-plugin/pkg/common"
 	"github.com/bloomberg/spire-tpm-plugin/pkg/server"
 	"github.com/spiffe/spire/pkg/common/catalog"
-	"github.com/spiffe/spire/proto/spire/server/nodeattestor"
+	"github.com/spiffe/spire/pkg/server/plugin/nodeattestor"
 )
 
 func main() {
